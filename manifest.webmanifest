@@ -1,0 +1,26 @@
+{
+  "name": "医览通 MedPass · 个人健康与就诊摘要",
+  "short_name": "医览通",
+  "description": "面向诊室沟通的本地优先个人健康档案 PWA：就诊目的、当前症状、病史、用药、体重趋势与医生只读二维码分享。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F7FB",
+  "theme_color": "#0F62FE",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
