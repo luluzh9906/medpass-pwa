@@ -38,7 +38,9 @@ const appState = {
   snapshotData: null,
   ui: {
     mode: 'doctor', // 'doctor' | 'manage' | 'snapshot'
+    doctorSection: null, // null (home) | 'visit' | 'report' | 'symptoms' | 'meds' | 'weight' | 'vitals_labs' | 'history' | 'qa'
     doctorScope: 'auto', // 'auto' | 'all' | '<doctor>::<spec>'
+    openFolds: {}, // foldKey -> boolean persisted across re-renders
     lang: 'zh',
     unitSystem: 'metric',
     weightRange: 90,
@@ -1146,6 +1148,12 @@ function renderDesktopStudioBar(activeState) {
   `;
 }
 
+function scrollScreenTop() {
+  const sc = document.getElementById('scroll-container');
+  if (sc) sc.scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
 function render() {
   const root = document.getElementById('app');
   if (!root || !appState.data) return;
@@ -1307,8 +1315,41 @@ function bindEvents() {
     const action = btn.dataset.action;
 
     switch (action) {
+      case 'open-doc-section':
+        appState.ui.doctorSection = btn.dataset.section || null;
+        render();
+        scrollScreenTop();
+        break;
+      case 'close-doc-section':
+        appState.ui.doctorSection = null;
+        render();
+        scrollScreenTop();
+        break;
+      case 'toggle-fold': {
+        const fk = btn.dataset.foldKey;
+        const defOpen = btn.dataset.defaultOpen === 'true';
+        if (fk) {
+          const cur = Object.prototype.hasOwnProperty.call(appState.ui.openFolds, fk)
+            ? !!appState.ui.openFolds[fk]
+            : defOpen;
+          appState.ui.openFolds[fk] = !cur;
+          render();
+        }
+        break;
+      }
+      case 'toggle-fold-group': {
+        const keys = (btn.dataset.keys || '').split(',').filter(Boolean);
+        const expand = btn.dataset.expandAll === 'true';
+        for (const k of keys) {
+          appState.ui.openFolds[k] = expand;
+        }
+        render();
+        break;
+      }
       case 'set-doc-scope':
         appState.ui.doctorScope = btn.dataset.scope || 'all';
+        appState.ui.doctorSection = null;
+        appState.ui.openFolds['d:scope'] = false;
         render();
         break;
       case 'focus-contact-scope': {
@@ -1316,8 +1357,10 @@ function bindEvents() {
         if (c) {
           const specId = c.specialtyId || inferSpecialtyId(c.department || c.departmentEn) || 'pcp';
           appState.ui.doctorScope = `${String(c.doctorName || '').trim().toLowerCase()}::${specId}`;
+          appState.ui.doctorSection = null;
           appState.ui.mode = 'doctor';
           render();
+          scrollScreenTop();
           showToast(`已切换至「${c.doctorName || c.department}」专属视角`, 'info');
         }
         break;
@@ -1637,6 +1680,7 @@ function bindEvents() {
       }
       case 'goto-api-key':
         appState.ui.manageTab = 'share-security';
+        appState.ui.openFolds['m:ai-key'] = true;
         render();
         setTimeout(() => document.getElementById('ai-key-section')?.scrollIntoView({ behavior: 'smooth' }), 60);
         break;
@@ -1902,7 +1946,9 @@ function bindEvents() {
         break;
       case 'lock-to-doctor':
         appState.ui.mode = 'doctor';
+        appState.ui.doctorSection = null;
         render();
+        scrollScreenTop();
         showToast(appState.ui.lang === 'en' ? 'Locked to Physician View' : '已切换为医生只读视图并锁定', 'info');
         break;
       case 'open-qr':
@@ -2681,13 +2727,27 @@ function bindEvents() {
 
 async function registerPwa() {
   if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !reloading) {
+        reloading = true;
+        window.location.reload();
+      }
+    });
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js');
+      const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          reg.update().catch(() => {});
+        }
+      });
       reg.addEventListener('updatefound', () => {
         const worker = reg.installing;
         worker?.addEventListener('statechange', () => {
           if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            showToast('发现新版本，已自动为您更新缓存', 'info');
+            showToast('发现新版本，正在为您自动刷新...', 'info');
           }
         });
       });

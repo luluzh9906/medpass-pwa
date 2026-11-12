@@ -5,8 +5,29 @@
  */
 import { getGeminiApiKey } from './ai.js';
 import { escapeHtml } from './charts.js';
-import { CLINICAL_PRESETS, pickText, t } from './i18n.js';
+import { CLINICAL_PRESETS, isFoldOpen, pickText, t } from './i18n.js';
 import { SPECIALTY_CATALOG } from './specialties.js';
+
+function renderManageFoldCard({ key, id = '', ui, defaultOpen = false, titleHtml, subHtml = '', badgeHtml = '', bodyHtml, cls = '' }) {
+  const open = isFoldOpen(ui, key, defaultOpen);
+  return `
+    <section class="edit-card fold-card manage-fold ${open ? 'is-open' : ''} ${cls}" ${id ? `id="${escapeHtml(id)}"` : ''}>
+      <button type="button" class="fold-head" data-action="toggle-fold" data-fold-key="${escapeHtml(key)}" data-default-open="${defaultOpen ? 'true' : 'false'}" aria-expanded="${open}">
+        <div class="fold-head-main">
+          <div class="fold-title-row">
+            <h3 class="manage-fold-title">${titleHtml}</h3>
+            ${badgeHtml}
+          </div>
+          ${subHtml ? `<div class="fold-meta-row">${subHtml}</div>` : ''}
+        </div>
+        <span class="fold-caret" aria-hidden="true">${open ? '▾' : '▸'}</span>
+      </button>
+      <div class="fold-body manage-fold-body">
+        ${bodyHtml}
+      </div>
+    </section>
+  `;
+}
 
 function renderSpecialtySelect(name, currentVal = '', isEn = false, includeAuto = true) {
   return `
@@ -26,10 +47,10 @@ export function renderManageView(state, ui) {
   const today = new Date().toISOString().slice(0, 10);
 
   const tabs = [
-    { id: 'visit-vitals', label: isEn ? 'Visit & Vitals' : '就诊与体征', icon: '📈' },
-    { id: 'symptoms-history', label: isEn ? 'Sx / ROS / Hx' : '症状与病史', icon: '🩺' },
-    { id: 'meds-reports', label: isEn ? 'Meds & Labs' : '用药与上传', icon: '💊' },
-    { id: 'share-security', label: isEn ? 'Security & Backup' : '安全与备份', icon: '🛡️' }
+    { id: 'visit-vitals', label: isEn ? 'Visit' : '就诊体征', icon: '📈' },
+    { id: 'symptoms-history', label: isEn ? 'Sx / Hx' : '症状病史', icon: '🩺' },
+    { id: 'meds-reports', label: isEn ? 'Meds/Lab' : '用药检查', icon: '💊' },
+    { id: 'share-security', label: isEn ? 'Security' : '安全备份', icon: '🛡️' }
   ];
 
   return `
@@ -68,10 +89,10 @@ export function renderManageView(state, ui) {
           state.isDemo
             ? `<section class="onboard-banner">
                 <div>
-                  <strong>👋 ${isEn ? 'Ready to track your own real health records?' : '当前为示例体验数据，准备好建立你自己的档案了吗？'}</strong>
-                  <p>${isEn ? 'Start cleanly in 30 seconds with your own DOB, allergies, pharmacy, and personal PIN.' : '30 秒快速配置姓名、出生日期、过敏史、常用药房与个人 PIN 密码，自动清空示例数据。'}</p>
+                  <strong>👋 ${isEn ? 'Sample Data Active' : '当前为示例体验数据'}</strong>
+                  <p>${isEn ? 'Create your real profile in 30s.' : '30 秒清空示例并填写个人真实病历。'}</p>
                 </div>
-                <button class="btn-primary-sm" data-action="open-setup-wizard">✨ ${isEn ? 'Create My Real Profile' : '创建我的真实档案'}</button>
+                <button class="btn-primary-sm" data-action="open-setup-wizard">✨ ${isEn ? 'Create Mine' : '创建真实档案'}</button>
               </section>`
             : ''
         }
@@ -95,24 +116,21 @@ function renderVisitAndVitalsTab(state, ui, today, isEn) {
   const glucoseInputUnit = ui.glucoseInputUnit || (ui.unitSystem === 'us' ? 'mgdl' : 'mmol');
   const hasApiKey = !!getGeminiApiKey();
   const aiBusy = ui.aiBusyLabel || '';
+  const latestWt = sortedWeights[0];
 
-  return `
-    <section class="edit-card ai-hub-card">
-      <div class="edit-card-head">
-        <h3>✨ ${isEn ? 'AI Vision & Smart Autofill' : 'AI 识图与自动填就诊卡'}</h3>
-        ${
-          hasApiKey
-            ? `<span class="pill pill-green">${isEn ? 'Gemini Ready' : 'AI 已就绪'}</span>`
-            : `<button type="button" class="btn-mini" data-action="goto-api-key">🔑 ${isEn ? 'Set Gemini Key' : '配置 API Key'}</button>`
-        }
-      </div>
-      <p class="help-text" style="margin-bottom: 8px;">
+  const aiHubBody = `
+      <p class="help-text">
         ${
           isEn
-            ? 'Snap a physician business card, appointment slip, or blank clinic intake form—AI extracts dates/times or fills the form strictly from your saved records.'
-            : '支持拍名片/预约单保存医生与就诊时间，或拍空白就诊登记表结合你已保存的全部资料自动代填。'
+            ? 'Snap a MD card, appointment slip, or intake form—or let MD dictate an After-Visit Report.'
+            : '支持拍名片/预约单保存医生与时间，拍就诊登记表自动代填，或由医生语音总结生成报告。'
         }
       </p>
+      ${
+        !hasApiKey
+          ? `<div style="margin-bottom:10px;"><button type="button" class="btn-mini" data-action="goto-api-key">🔑 ${isEn ? 'Configure Gemini Key (Optional)' : '配置 Gemini AI 密钥'}</button></div>`
+          : ''
+      }
       ${aiBusy ? `<div class="ai-busy-bar">⏳ ${escapeHtml(aiBusy)}</div>` : ''}
       <div class="ai-hub-grid">
         <label class="ai-action-tile">
@@ -138,12 +156,9 @@ function renderVisitAndVitalsTab(state, ui, today, isEn) {
           <span class="ai-tile-sub">${isEn ? 'Dictate plan -> AVS report' : '医生口述自动整理成报告'}</span>
         </button>
       </div>
-    </section>
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>⚖️ ${isEn ? 'Quick Log Weight' : '快速记体重'}</h3>
-        <span class="muted-xs">${isEn ? 'Supports kg or lbs input' : '支持 kg 或 lbs 录入，自动换算'}</span>
-      </div>
+  `;
+
+  const weightBody = `
       <form class="inline-form" data-form="add-weight">
         <div class="form-row-2">
           <label class="field">
@@ -179,12 +194,9 @@ function renderVisitAndVitalsTab(state, ui, today, isEn) {
           )
           .join('')}
       </div>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🩺 ${isEn ? 'Quick Log Vitals' : '快速记生命体征'}</h3>
-      </div>
+  const vitalsBody = `
       <div class="seg-tabs full-width" style="margin-bottom: 10px; flex-wrap: wrap;">
         <button type="button" class="seg-btn ${selectedVitalType === 'bp' ? 'active' : ''}" data-action="quick-vital-type" data-vtype="bp">${isEn ? 'BP' : '血压'}</button>
         <button type="button" class="seg-btn ${selectedVitalType === 'hr' ? 'active' : ''}" data-action="quick-vital-type" data-vtype="hr">${isEn ? 'HR' : '心率'}</button>
@@ -263,15 +275,12 @@ function renderVisitAndVitalsTab(state, ui, today, isEn) {
           })
           .join('')}
       </div>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🎯 ${isEn ? 'Visit Purpose & Appointment Info' : '本次就诊卡（目的、时间与医生信息）'}</h3>
-        <div class="item-actions">
-          <button type="button" class="btn-mini" data-action="export-ics">📅 ${isEn ? '.ics' : '日历'}</button>
-          <button type="button" class="btn-mini" data-action="open-archive-visit">📁 ${isEn ? 'Archive' : '归档'}</button>
-        </div>
+  const visitBody = `
+      <div class="item-actions" style="margin-bottom:10px;">
+        <button type="button" class="btn-mini" data-action="export-ics">📅 ${isEn ? 'Add Calendar (.ics)' : '导出日历提醒'}</button>
+        <button type="button" class="btn-mini" data-action="open-archive-visit">📁 ${isEn ? 'Archive Current Visit' : '归档本次就诊'}</button>
       </div>
       <form class="stack-form" data-form="save-visit">
         <div class="form-row-2">
@@ -350,8 +359,8 @@ function renderVisitAndVitalsTab(state, ui, today, isEn) {
                     <div class="muted-xs">${escapeHtml([c.clinicName, c.phone, c.address].filter(Boolean).join(' · '))}</div>
                   </div>
                   <div class="item-actions">
-                    <button class="btn-mini" data-action="focus-contact-scope" data-id="${c.id}">🎯 ${isEn ? 'Preview View' : '看此医生视角'}</button>
-                    <button class="btn-mini" data-action="apply-contact-to-visit" data-id="${c.id}">${isEn ? 'Use' : '填入就诊'}</button>
+                    <button class="btn-mini" data-action="focus-contact-scope" data-id="${c.id}">🎯 ${isEn ? 'View' : '看视角'}</button>
+                    <button class="btn-mini" data-action="apply-contact-to-visit" data-id="${c.id}">${isEn ? 'Use' : '填入'}</button>
                     <button class="btn-del-xs" data-action="del-saved-contact" data-id="${c.id}">✕</button>
                   </div>
                 </div>
@@ -382,18 +391,52 @@ function renderVisitAndVitalsTab(state, ui, today, isEn) {
             </div>`
           : ''
       }
-    </section>
+  `;
+
+  return `
+    ${renderManageFoldCard({
+      key: 'm:ai-hub',
+      ui,
+      defaultOpen: false,
+      cls: 'ai-hub-card',
+      titleHtml: `✨ ${isEn ? 'AI Vision & Smart Autofill' : 'AI 识图与自动填就诊卡'}`,
+      badgeHtml: hasApiKey ? `<span class="pill pill-green">${isEn ? 'Ready' : 'AI 就绪'}</span>` : '',
+      subHtml: isEn ? 'MD card / form autofill / voice wrap-up' : '名片识别 · 拍照填就诊卡 · 医生语音报告',
+      bodyHtml: aiHubBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:weight',
+      ui,
+      defaultOpen: false,
+      titleHtml: `⚖️ ${isEn ? 'Quick Log Weight' : '快速记体重'}`,
+      badgeHtml: `<span class="count-pill tabular">${sortedWeights.length}</span>`,
+      subHtml: latestWt ? `${latestWt.weightKg.toFixed(1)} kg · ${latestWt.date}` : isEn ? 'Supports kg or lbs' : '支持 kg / lbs 自动换算',
+      bodyHtml: weightBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:vitals',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🩺 ${isEn ? 'Quick Log Vitals' : '快速记生命体征'}`,
+      badgeHtml: `<span class="count-pill tabular">${sortedVitals.length}</span>`,
+      subHtml: isEn ? 'BP / HR / BG / Temp / SpO2 / Pain' : '血压 · 心率 · 血糖 · 体温 · 血氧 · 疼痛',
+      bodyHtml: vitalsBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:visit',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🎯 ${isEn ? 'Visit Card & Appointment Info' : '本次就诊卡与医生信息'}`,
+      subHtml: escapeHtml([visit.doctorName, visit.visitDate].filter(Boolean).join(' · ') || (isEn ? 'Edit purpose & questions' : '编辑就诊目的与提问清单')),
+      bodyHtml: visitBody
+    })}
   `;
 }
 
-function renderSymptomsAndHistoryTab(state, _ui, today, isEn) {
+function renderSymptomsAndHistoryTab(state, ui, today, isEn) {
   const { profile, careTeam, symptoms, rosNegatives, history, socialHistory } = state;
 
-  return `
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>➕ ${isEn ? 'Current Symptoms' : '当前症状管理'}</h3>
-      </div>
+  const symBody = `
       <form class="stack-form" data-form="add-symptom">
         <div class="form-row-2">
           <label class="field">
@@ -465,12 +508,9 @@ function renderSymptomsAndHistoryTab(state, _ui, today, isEn) {
           )
           .join('')}
       </div>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🛡️ ${isEn ? 'Pertinent Negatives (ROS Denials)' : '明确否认的伴随症状（阴性鉴别）'}</h3>
-      </div>
+  const rosBody = `
       <div class="preset-chips">
         ${CLINICAL_PRESETS.ros
           .map(
@@ -496,12 +536,9 @@ function renderSymptomsAndHistoryTab(state, _ui, today, isEn) {
           )
           .join('')}
       </div>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🪪 ${isEn ? 'Demographics, Allergies & US Pharmacy' : '个人档案、过敏史与药房信息'}</h3>
-      </div>
+  const profileBody = `
       <form class="stack-form" data-form="save-profile">
         <div class="form-row-2">
           <label class="field">
@@ -577,12 +614,9 @@ function renderSymptomsAndHistoryTab(state, _ui, today, isEn) {
         </div>
         <button type="submit" class="btn-primary">${isEn ? 'Save Profile & Pharmacy' : '保存档案与药房信息'}</button>
       </form>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>📋 ${isEn ? 'PMH, Surgical, Family & Social History' : '既往史、手术史与社会史'}</h3>
-      </div>
+  const historyBody = `
       <div class="preset-chips" style="margin-bottom: 8px;">
         ${CLINICAL_PRESETS.conditions
           .map(
@@ -652,20 +686,54 @@ function renderSymptomsAndHistoryTab(state, _ui, today, isEn) {
         </label>
         <button type="submit" class="btn-secondary">${isEn ? 'Save Histories' : '保存手术、家族与社会史'}</button>
       </form>
-    </section>
+  `;
+
+  return `
+    ${renderManageFoldCard({
+      key: 'm:symptoms',
+      ui,
+      defaultOpen: false,
+      titleHtml: `➕ ${isEn ? 'Current Symptoms' : '当前症状管理'}`,
+      badgeHtml: `<span class="count-pill tabular">${symptoms?.length || 0}</span>`,
+      subHtml: symptoms?.length ? escapeHtml(symptoms.slice(0, 2).map((s) => pickText(s, 'name', isEn ? 'en' : 'zh')).join(' · ')) : isEn ? 'Add or edit symptoms' : '点击展开添加或编辑症状',
+      bodyHtml: symBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:ros',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🛡️ ${isEn ? 'Pertinent Negatives (ROS)' : '明确否认的伴随症状'}`,
+      badgeHtml: `<span class="count-pill tabular">${rosNegatives?.length || 0}</span>`,
+      subHtml: isEn ? 'Tap presets or add custom denials' : '一键勾选无胸痛、无发热等阴性鉴别',
+      bodyHtml: rosBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:profile',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🪪 ${isEn ? 'Profile, Allergies & Pharmacy' : '个人档案、过敏史与药房'}`,
+      subHtml: escapeHtml([profile.name, profile.allergies?.length ? `${profile.allergies.length} 项过敏` : ''].filter(Boolean).join(' · ')),
+      bodyHtml: profileBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:history',
+      ui,
+      defaultOpen: false,
+      titleHtml: `📋 ${isEn ? 'PMH, Surgical, Family & Social' : '既往史、手术史与社会史'}`,
+      badgeHtml: `<span class="count-pill tabular">${history?.conditions?.length || 0}</span>`,
+      subHtml: isEn ? 'Conditions, surgeries, family & habits' : '慢性病 · 手术 · 家族史 · 烟酒妊娠',
+      bodyHtml: historyBody
+    })}
   `;
 }
 
-function renderMedsAndReportsTab(state, _ui, today, isEn) {
+function renderMedsAndReportsTab(state, ui, today, isEn) {
   const { medications, attachments } = state;
   const activeMeds = (medications || []).filter((m) => m.status === 'active');
   const recentMeds = (medications || []).filter((m) => m.status === 'recent');
+  const examHistory = state.examHistory || [];
 
-  return `
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>💊 ${isEn ? 'Medication Reconciliation (Rx / OTC)' : '添加与管理用药记录'}</h3>
-      </div>
+  const medsBody = `
       <form class="stack-form" data-form="add-med">
         <div class="form-row-3">
           <label class="field" style="grid-column: span 2;">
@@ -786,16 +854,15 @@ function renderMedsAndReportsTab(state, _ui, today, isEn) {
           )
           .join('')}
       </div>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>📄 ${isEn ? 'Upload Labs / Imaging' : '上传化验单 / 检查资料'}</h3>
-        <button type="button" class="btn-mini" data-action="ai-scan-report">✨ ${isEn ? 'AI Auto-Fill from Photo' : 'AI 识别报告填表'}</button>
+  const reportsBody = `
+      <div style="margin-bottom:10px;">
+        <button type="button" class="btn-mini" data-action="ai-scan-report">✨ ${isEn ? 'AI Auto-Fill from Photo' : '选图后点此 AI 识别报告填表'}</button>
       </div>
       <form class="stack-form" data-form="add-report">
         <label class="field">
-          <span>${isEn ? '1. Photo / Scan (Auto-compressed; click AI button above to auto-fill)' : '1. 拍照或选择报告照片（选图后点右上角「AI 识别报告填表」自动填写下方内容）'}</span>
+          <span>${isEn ? '1. Photo / Scan' : '1. 拍照或选择报告照片（自动压缩）'}</span>
           <input type="file" name="reportPhoto" accept="image/*" capture="environment" data-compress-preview="report-photo-preview"/>
           <div id="report-photo-preview" class="upload-preview-note"></div>
         </label>
@@ -854,12 +921,9 @@ function renderMedsAndReportsTab(state, _ui, today, isEn) {
           )
           .join('')}
       </div>
-    </section>
+  `;
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🔬 ${isEn ? 'Past Diagnostic & Imaging History' : '既往检查历史（影像 / 超声 / 心电图 / 内镜 / 体检）'}</h3>
-      </div>
+  const examsBody = `
       <div class="preset-chips" style="margin-bottom: 8px;">
         ${CLINICAL_PRESETS.exams
           .map(
@@ -925,7 +989,7 @@ function renderMedsAndReportsTab(state, _ui, today, isEn) {
       </form>
 
       <div class="compact-list" style="margin-top: 12px;">
-        ${(state.examHistory || [])
+        ${examHistory
           .map(
             (ex) => `
           <div class="compact-item">
@@ -942,7 +1006,36 @@ function renderMedsAndReportsTab(state, _ui, today, isEn) {
           )
           .join('')}
       </div>
-    </section>
+  `;
+
+  return `
+    ${renderManageFoldCard({
+      key: 'm:meds',
+      ui,
+      defaultOpen: false,
+      titleHtml: `💊 ${isEn ? 'Medications (Rx / OTC)' : '添加与管理用药记录'}`,
+      badgeHtml: `<span class="count-pill tabular">${medications?.length || 0}</span>`,
+      subHtml: `${isEn ? 'Active' : '在服'} ${activeMeds.length} · ${isEn ? 'Stopped' : '曾用'} ${recentMeds.length}`,
+      bodyHtml: medsBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:reports',
+      ui,
+      defaultOpen: false,
+      titleHtml: `📄 ${isEn ? 'Labs & Imaging Reports' : '上传化验单 / 检查资料'}`,
+      badgeHtml: `<span class="count-pill tabular">${attachments?.length || 0}</span>`,
+      subHtml: isEn ? 'Snap photo + AI auto-fill values' : '支持拍照后 AI 识别关键指标',
+      bodyHtml: reportsBody
+    })}
+    ${renderManageFoldCard({
+      key: 'm:exams',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🔬 ${isEn ? 'Past Diagnostic & Imaging' : '既往检查历史记录'}`,
+      badgeHtml: `<span class="count-pill tabular">${examHistory.length}</span>`,
+      subHtml: isEn ? 'Ultrasound / EKG / CT / Endoscopy' : '超声 · 心电图 · CT · 内镜 · 体检',
+      bodyHtml: examsBody
+    })}
   `;
 }
 
@@ -952,98 +1045,119 @@ function renderShareAndSecurityTab(state, ui, isEn) {
   const savedKey = getGeminiApiKey();
 
   return `
-    <section class="edit-card" id="ai-key-section">
-      <div class="edit-card-head">
-        <h3>✨ ${isEn ? 'Gemini AI Vision API Key' : 'AI 识图密钥设置 (Gemini API Key)'}</h3>
-        ${savedKey ? `<span class="pill pill-green">${isEn ? 'Configured' : '已配置'}</span>` : `<span class="pill pill-muted">${isEn ? 'Not Set' : '未配置'}</span>`}
-      </div>
-      <p class="help-text">
-        ${
-          isEn
-            ? 'Used for scanning lab reports, pill bottles, doctor business cards, and auto-filling intake forms. Stored strictly on this device and never included in backups or QR shares.'
-            : '用于化验单识别、药盒识别、医生名片/预约识别及空白就诊卡自动代填。仅保存在你本机浏览器中，导出备份或生成二维码时均不会包含此密钥。'
-        }
-      </p>
-      <form class="inline-form" data-form="save-api-key">
-        <div class="form-row-btn">
-          <input type="password" name="apiKey" value="${escapeHtml(savedKey)}" placeholder="AIza..." class="flex-1"/>
-          <button type="submit" class="btn-primary-sm">${isEn ? 'Save Key' : '保存密钥'}</button>
-          ${savedKey ? `<button type="button" class="btn-secondary-sm" data-action="clear-api-key">${isEn ? 'Clear' : '清除'}</button>` : ''}
-        </div>
-      </form>
-    </section>
+    ${renderManageFoldCard({
+      key: 'm:ai-key',
+      id: 'ai-key-section',
+      ui,
+      defaultOpen: false,
+      titleHtml: `✨ ${isEn ? 'Gemini AI Vision API Key' : 'AI 识图密钥设置'}`,
+      badgeHtml: savedKey ? `<span class="pill pill-green">${isEn ? 'Configured' : '已配置'}</span>` : `<span class="pill pill-muted">${isEn ? 'Not Set' : '未配置'}</span>`,
+      subHtml: isEn ? 'Stored only on this device' : '仅保存于本机浏览器，从不上传',
+      bodyHtml: `
+        <p class="help-text">
+          ${
+            isEn
+              ? 'Used for scanning lab reports, pill bottles, doctor business cards, and auto-filling intake forms. Stored strictly on this device and never included in backups or QR shares.'
+              : '用于化验单识别、药盒识别、医生名片/预约识别及空白就诊卡自动代填。仅保存在你本机浏览器中，导出备份或生成二维码时均不会包含此密钥。'
+          }
+        </p>
+        <form class="inline-form" data-form="save-api-key">
+          <div class="form-row-btn">
+            <input type="password" name="apiKey" value="${escapeHtml(savedKey)}" placeholder="AIza..." class="flex-1"/>
+            <button type="submit" class="btn-primary-sm">${isEn ? 'Save Key' : '保存密钥'}</button>
+            ${savedKey ? `<button type="button" class="btn-secondary-sm" data-action="clear-api-key">${isEn ? 'Clear' : '清除'}</button>` : ''}
+          </div>
+        </form>
+      `
+    })}
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🌐 ${isEn ? 'Language, Units & View' : '语言、单位与显示偏好'}</h3>
-      </div>
-      <div class="form-row-2">
-        <button class="btn-secondary" data-action="toggle-lang">
-          ${isEn ? 'Switch to 中文 (Chinese)' : '切换为英文界面 (English)'}
-        </button>
-        <button class="btn-secondary" data-action="toggle-unit">
-          ${ui.unitSystem === 'us' ? 'Switch to Metric (kg / °C)' : '切换为美国单位 (lbs / °F / mg/dL)'}
-        </button>
-      </div>
-      <button class="btn-secondary" style="width:100%;margin-top:8px;" data-action="toggle-frame">
-        ${ui.desktopFrame ? (isEn ? '🖥️ Switch to Clean Desktop Layout' : '🖥️ 切换桌面宽屏卡片布局') : (isEn ? '📱 Preview in Phone Frame' : '📱 切换手机外壳预览')}
-      </button>
-    </section>
-
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>🔐 ${isEn ? 'PIN Code & Auto-Lock' : '防误触 PIN 码与自动锁定'}</h3>
-      </div>
-      <form class="stack-form" data-form="change-pin">
+    ${renderManageFoldCard({
+      key: 'm:prefs',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🌐 ${isEn ? 'Language, Units & View' : '语言、单位与显示偏好'}`,
+      subHtml: `${isEn ? 'English' : '中文'} · ${ui.unitSystem === 'us' ? 'lbs / °F' : 'kg / °C'}`,
+      bodyHtml: `
         <div class="form-row-2">
-          <label class="field">
-            <span>${isEn ? 'New PIN (4-6 digits)' : '新 PIN 码（4~6位数字）'}</span>
-            <input type="password" inputmode="numeric" pattern="\\d{4,6}" name="newPin" placeholder="${isEn ? '4-6 digits' : '输入4~6位数字'}" required/>
-          </label>
-          <label class="field">
-            <span>${isEn ? 'Auto-Lock Timer' : '无操作自动回锁'}</span>
-            <select name="autoLockMinutes" data-action="change-autolock">
-              <option value="2" ${state.profile.autoLockMinutes === 2 ? 'selected' : ''}>2 min</option>
-              <option value="5" ${state.profile.autoLockMinutes === 5 ? 'selected' : ''}>5 min</option>
-              <option value="10" ${state.profile.autoLockMinutes === 10 ? 'selected' : ''}>10 min</option>
-              <option value="0" ${state.profile.autoLockMinutes === 0 ? 'selected' : ''}>Manual only</option>
-            </select>
+          <button class="btn-secondary" data-action="toggle-lang">
+            ${isEn ? 'Switch to 中文 (Chinese)' : '切换为英文界面 (English)'}
+          </button>
+          <button class="btn-secondary" data-action="toggle-unit">
+            ${ui.unitSystem === 'us' ? 'Switch to Metric (kg / °C)' : '切换为美国单位 (lbs / °F / mg/dL)'}
+          </button>
+        </div>
+        <button class="btn-secondary" style="width:100%;margin-top:8px;" data-action="toggle-frame">
+          ${ui.desktopFrame ? (isEn ? '🖥️ Switch to Clean Desktop Layout' : '🖥️ 切换桌面宽屏卡片布局') : (isEn ? '📱 Preview in Phone Frame' : '📱 切换手机外壳预览')}
+        </button>
+      `
+    })}
+
+    ${renderManageFoldCard({
+      key: 'm:pin',
+      ui,
+      defaultOpen: false,
+      titleHtml: `🔐 ${isEn ? 'PIN Code & Auto-Lock' : '防误触 PIN 码与自动锁定'}`,
+      subHtml: `${isEn ? 'Auto-lock' : '自动锁定'}：${state.profile.autoLockMinutes ? `${state.profile.autoLockMinutes} min` : isEn ? 'Manual' : '手动'}`,
+      bodyHtml: `
+        <form class="stack-form" data-form="change-pin">
+          <div class="form-row-2">
+            <label class="field">
+              <span>${isEn ? 'New PIN (4-6 digits)' : '新 PIN 码（4~6位数字）'}</span>
+              <input type="password" inputmode="numeric" pattern="\\d{4,6}" name="newPin" placeholder="${isEn ? '4-6 digits' : '输入4~6位数字'}" required/>
+            </label>
+            <label class="field">
+              <span>${isEn ? 'Auto-Lock Timer' : '无操作自动回锁'}</span>
+              <select name="autoLockMinutes" data-action="change-autolock">
+                <option value="2" ${state.profile.autoLockMinutes === 2 ? 'selected' : ''}>2 min</option>
+                <option value="5" ${state.profile.autoLockMinutes === 5 ? 'selected' : ''}>5 min</option>
+                <option value="10" ${state.profile.autoLockMinutes === 10 ? 'selected' : ''}>10 min</option>
+                <option value="0" ${state.profile.autoLockMinutes === 0 ? 'selected' : ''}>Manual only</option>
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="btn-secondary">${isEn ? 'Update PIN' : '更新 PIN 密码'}</button>
+        </form>
+      `
+    })}
+
+    ${renderManageFoldCard({
+      key: 'm:backup',
+      ui,
+      defaultOpen: false,
+      titleHtml: `💾 ${isEn ? 'Local Storage & Backup' : '手机本地存储与备份安全'}`,
+      subHtml: `IndexedDB · ${isEn ? `Used ~${estKb} KB` : `已用约 ${estKb} KB`}`,
+      bodyHtml: `
+        <div class="storage-meta-box">
+          <div>IndexedDB · ${isEn ? `Used ~${estKb} KB` : `已用约 ${estKb} KB`} · ${persisted ? '<span class="text-green">Persistent</span>' : 'Standard'}</div>
+        </div>
+        <div class="backup-btn-grid">
+          <button class="btn-primary" data-action="export-backup">📤 ${isEn ? 'Export Backup (.json)' : '导出完整备份 (.json)'}</button>
+          <label class="btn-secondary file-btn">
+            📥 ${isEn ? 'Import Backup' : '导入恢复备份'}
+            <input type="file" accept=".json,application/json" data-action="import-backup" hidden/>
           </label>
         </div>
-        <button type="submit" class="btn-secondary">${isEn ? 'Update PIN' : '更新 PIN 密码'}</button>
-      </form>
-    </section>
+        <div class="danger-zone">
+          <button class="btn-ghost-danger" data-action="open-setup-wizard">✨ ${isEn ? 'Setup Real Profile' : '新建真实个人档案'}</button>
+          <button class="btn-ghost-danger" data-action="reset-demo">🔄 ${isEn ? 'Reset Demo Data' : '恢复示例体验数据'}</button>
+          <button class="btn-ghost-danger" data-action="clear-all">🗑️ ${isEn ? 'Clear All' : '清空全部病历'}</button>
+        </div>
+      `
+    })}
 
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>💾 ${isEn ? 'Local Storage & Backup' : '手机本地存储与备份安全'}</h3>
-      </div>
-      <div class="storage-meta-box">
-        <div>IndexedDB · ${isEn ? `Used ~${estKb} KB` : `已用约 ${estKb} KB`} · ${persisted ? '<span class="text-green">Persistent</span>' : 'Standard'}</div>
-      </div>
-      <div class="backup-btn-grid">
-        <button class="btn-primary" data-action="export-backup">📤 ${isEn ? 'Export Backup (.json)' : '导出完整备份 (.json)'}</button>
-        <label class="btn-secondary file-btn">
-          📥 ${isEn ? 'Import Backup' : '导入恢复备份'}
-          <input type="file" accept=".json,application/json" data-action="import-backup" hidden/>
+    ${renderManageFoldCard({
+      key: 'm:qr',
+      ui,
+      defaultOpen: false,
+      titleHtml: `📱 ${isEn ? 'Optional Offline QR Snapshot' : '离线二维码分享设置'}`,
+      subHtml: isEn ? 'Zero-server local QR snapshot' : '无需联网即可面对面扫码给医生看',
+      bodyHtml: `
+        <label class="switch-row" style="margin-bottom: 10px;">
+          <input type="checkbox" ${state.profile.maskNameOnShare ? 'checked' : ''} data-action="toggle-mask-name"/>
+          <span>${isEn ? 'Mask full name in QR snapshot' : '生成二维码时隐藏全名（脱敏显示）'}</span>
         </label>
-      </div>
-      <div class="danger-zone">
-        <button class="btn-ghost-danger" data-action="open-setup-wizard">✨ ${isEn ? 'Setup Real Profile' : '新建真实个人档案'}</button>
-        <button class="btn-ghost-danger" data-action="reset-demo">🔄 ${isEn ? 'Reset Demo Data' : '恢复示例体验数据'}</button>
-        <button class="btn-ghost-danger" data-action="clear-all">🗑️ ${isEn ? 'Clear All' : '清空全部病历'}</button>
-      </div>
-    </section>
-
-    <section class="edit-card">
-      <div class="edit-card-head">
-        <h3>📱 ${isEn ? 'Optional Offline QR Snapshot' : '可选：离线二维码分享'}</h3>
-      </div>
-      <label class="switch-row" style="margin-bottom: 10px;">
-        <input type="checkbox" ${state.profile.maskNameOnShare ? 'checked' : ''} data-action="toggle-mask-name"/>
-        <span>${isEn ? 'Mask full name in QR snapshot' : '生成二维码时隐藏全名（脱敏显示）'}</span>
-      </label>
-      <button class="btn-secondary" style="width:100%;" data-action="open-qr">${isEn ? 'Generate QR Code' : '生成 / 查看二维码'}</button>
-    </section>
+        <button class="btn-secondary" style="width:100%;" data-action="open-qr">${isEn ? 'Generate QR Code' : '生成 / 查看二维码'}</button>
+      `
+    })}
   `;
 }

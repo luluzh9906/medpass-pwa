@@ -5,8 +5,8 @@
 export const I18N = {
   zh: {
     appTitle: '医览通 MedPass',
-    modeDocLocked: '医生只读视图（已锁定）',
-    modeSnapshot: '二维码只读快照',
+    modeDocLocked: '只读模式',
+    modeSnapshot: '二维码快照',
     modeManage: '个人录入端（已解锁）',
     updatedAt: '更新于',
     btnQr: '二维码',
@@ -38,7 +38,7 @@ export const I18N = {
       { label: '药房与主治医生？', q: '常用药房和主治医生是谁？' }
     ],
     sec1Title: '本次就诊目的 (CC / HPI)',
-    visitReportTitle: '医生就诊总结与就医报告 (After-Visit Summary)',
+    visitReportTitle: '医生就诊总结 · 就医报告',
     voiceInputBtn: '医生语音总结',
     voiceEmptyTip: '就诊结束时，可请医生点击右侧「🎙️ 医生语音总结」口述诊断与医嘱，系统将自动整理成结构化就医报告。',
     vrDiagnosis: '诊断与评估',
@@ -112,6 +112,23 @@ export const I18N = {
     lockedFooterTip: '当前处于医生只读锁定状态，所有编辑入口已隐藏防误触。',
     snapFooterTip: '此页面通过患者分享的二维码在您手机本地解码展示，未向任何服务器上传或留存病历。',
     exitSnapBtn: '返回本地 PWA 首页',
+    backToHome: '返回总览',
+    tapToView: '点击查看详情',
+    prevSection: '上一项',
+    nextSection: '下一项',
+    expandAll: '全部展开',
+    collapseAll: '全部收起',
+    switchView: '切换视角',
+    navCards: {
+      qaTitle: '医生快速问询',
+      qaSub: '输入问题据实作答 · 未记录明示不清楚',
+      visitTitle: '本次就诊详情与过往复诊',
+      symptomsTitle: '当前症状与否认清单',
+      medsTitle: '服药核对 (在服 / 曾用)',
+      weightTitle: '体重趋势与 BMI',
+      vitalsTitle: '体征、化验单与既往检查',
+      historyTitle: '既往史、社会史与联络信息'
+    },
     vitalsMeta: {
       bp: { title: '血压', icon: '🩺', hintMetric: '参考 < 120/80', hintUs: '参考 < 120/80' },
       hr: { title: '静息心率', icon: '❤️', hintMetric: '参考 60~100', hintUs: '参考 60~100' },
@@ -126,13 +143,13 @@ export const I18N = {
   },
   en: {
     appTitle: 'MedPass',
-    modeDocLocked: 'Physician Read-Only (Locked)',
-    modeSnapshot: 'QR Snapshot (Read-Only)',
-    modeManage: 'Patient Edit Mode (Unlocked)',
+    modeDocLocked: 'Read-Only',
+    modeSnapshot: 'QR Snapshot',
+    modeManage: 'Edit Mode (Unlocked)',
     updatedAt: 'Updated',
-    btnQr: 'QR Share',
-    btnPrint: 'Print / PDF',
-    btnUnlock: 'Unlock Edit',
+    btnQr: 'QR',
+    btnPrint: 'Print',
+    btnUnlock: 'Unlock',
     btnLock: 'Lock to Physician View',
     demoBadge: 'Sample Data',
     dobLabel: 'DOB',
@@ -159,7 +176,7 @@ export const I18N = {
       { label: 'Pharmacy & PCP?', q: 'What is the preferred pharmacy and PCP?' }
     ],
     sec1Title: 'Chief Complaint (CC) & HPI',
-    visitReportTitle: 'Physician Visit Summary / After-Visit Report',
+    visitReportTitle: 'MD Visit Summary Report',
     voiceInputBtn: 'MD Voice Summary',
     voiceEmptyTip: 'At wrap-up, tap "🎙️ MD Voice Summary" so the physician can dictate assessment & plan directly into a structured visit report.',
     vrDiagnosis: 'Assessment / Diagnosis',
@@ -233,6 +250,23 @@ export const I18N = {
     lockedFooterTip: 'Physician Read-Only Lock active. All edit controls are hidden to prevent accidental changes.',
     snapFooterTip: 'Decoded locally in your browser from patient QR code. No patient data is sent to any server.',
     exitSnapBtn: 'Back to Local PWA Home',
+    backToHome: 'Summary',
+    tapToView: 'Details',
+    prevSection: 'Prev',
+    nextSection: 'Next',
+    expandAll: 'Expand All',
+    collapseAll: 'Collapse All',
+    switchView: 'Switch',
+    navCards: {
+      qaTitle: 'Ask Patient Record (Q&A)',
+      qaSub: 'Fact-grounded answers · Says "Unclear" if missing',
+      visitTitle: 'Visit Details & Prior Visits',
+      symptomsTitle: 'Symptoms & Pertinent Negatives',
+      medsTitle: 'Medication Reconciliation',
+      weightTitle: 'Weight Trend & BMI',
+      vitalsTitle: 'Vitals, Labs & Past Exams',
+      historyTitle: 'PMH, Social Hx & Care Team'
+    },
     vitalsMeta: {
       bp: { title: 'Blood Pressure', icon: '🩺', hintMetric: 'Goal < 120/80', hintUs: 'Goal < 120/80' },
       hr: { title: 'Resting HR', icon: '❤️', hintMetric: 'Ref 60–100', hintUs: 'Ref 60–100' },
@@ -264,6 +298,14 @@ export function pickText(obj, field, lang) {
     }
   }
   return obj[field] ?? '';
+}
+
+export function isFoldOpen(ui, key, defaultOpen = false) {
+  const map = ui && ui.openFolds;
+  if (map && Object.prototype.hasOwnProperty.call(map, key)) {
+    return !!map[key];
+  }
+  return defaultOpen;
 }
 
 export function formatWeightValue(kg, unitSystem) {

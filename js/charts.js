@@ -63,11 +63,11 @@ export function renderWeightChartSvg(weights, heightCm, selectedIdx = null, lang
   const activeIdx = selectedIdx !== null && selectedIdx < sorted.length ? selectedIdx : sorted.length - 1;
 
   const W = 340;
-  const H = 166;
-  const padL = 40;
+  const H = 178;
+  const padL = 46;
   const padR = 14;
   const padT = 18;
-  const padB = 28;
+  const padB = 30;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -95,7 +95,7 @@ export function renderWeightChartSvg(weights, heightCm, selectedIdx = null, lang
     const y = padT + tStep * plotH;
     return `
       <line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#E2E8F0" stroke-dasharray="3 3" stroke-width="1"/>
-      <text x="${padL - 6}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="#64748B" class="tabular">${val}</text>
+      <text x="${padL - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="12.5" fill="#475569" class="tabular">${val}</text>
     `;
   });
 
@@ -116,7 +116,7 @@ export function renderWeightChartSvg(weights, heightCm, selectedIdx = null, lang
     const p = coords[idx];
     const shortDate = lang === 'en' ? `${p.date.slice(5, 7)}/${p.date.slice(8, 10)}` : p.date.slice(5);
     const anchor = idx === 0 ? 'start' : idx === coords.length - 1 ? 'end' : 'middle';
-    return `<text x="${p.x.toFixed(1)}" y="${H - 6}" text-anchor="${anchor}" font-size="10" fill="#64748B" class="tabular">${shortDate}</text>`;
+    return `<text x="${p.x.toFixed(1)}" y="${H - 6}" text-anchor="${anchor}" font-size="12.5" fill="#475569" class="tabular">${shortDate}</text>`;
   });
 
   const activePt = coords[activeIdx];
@@ -128,9 +128,9 @@ export function renderWeightChartSvg(weights, heightCm, selectedIdx = null, lang
     const isActive = i === activeIdx;
     return `
       <g class="chart-point" data-weight-idx="${i}" style="cursor:pointer;">
-        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="12" fill="transparent"/>
-        ${isActive ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6.5" fill="#0F62FE" fill-opacity="0.18"/>` : ''}
-        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isActive ? 4.2 : 3}" fill="${isActive ? '#0F62FE' : '#FFFFFF'}" stroke="#0F62FE" stroke-width="${isActive ? 2 : 1.8}"/>
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="13" fill="transparent"/>
+        ${isActive ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7.5" fill="#0F62FE" fill-opacity="0.18"/>` : ''}
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isActive ? 5 : 3.6}" fill="${isActive ? '#0F62FE' : '#FFFFFF'}" stroke="#0F62FE" stroke-width="${isActive ? 2.4 : 2}"/>
       </g>
     `;
   });
